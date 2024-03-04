@@ -7,6 +7,7 @@ fig-pos: H
 date: today
 date-format: long
 number-sections: true
+
 bibliography: references.bib
 ---
 
@@ -291,5 +292,76 @@ It seems that majority of the hosts owned a single property. Therefore, we will 
 
 # Relationship between variables
 
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: fig-pricenreview
+#| fig-cap: "Relationship between price and review and whether a host is a superhost, for Paris Airbnb rentals in December  2023" 
 
+airbnb_data_selected |>
+  filter(number_of_reviews > 1) |>
+  ggplot(aes(x = price, y = review_scores_rating, 
+             color = host_is_superhost)) +
+  geom_point(size = 1, alpha = 0.1) +
+  theme_classic() +
+  labs(
+    x = "Price per night",
+    y = "Average review score",
+    color = "Superhost"
+  ) +
+  scale_color_brewer(palette = "Set1")
+```
 
+As seen in @fig-pricenreview, we see the relationship between price and review and whether a host is a superhost.
+
+One important aspect of the eligibility of superhost is how fast the host respond. As seen here, we find that more superhosts compare to normal hosts respond within an hour.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: tbl-responsehost
+#| tbl-cap: "Table of response time of hosts/superhosts"
+
+res <- airbnb_data_selected |>
+  tabyl(host_response_time, host_is_superhost) |>
+  adorn_percentages("col") |>
+  adorn_pct_formatting(digits = 0) |>
+  adorn_ns() |>
+  adorn_title()
+
+kable(res)
+```
+
+With the findings previously, we use our insight to construct the model that we want to estimate: $$ Prob(Is superhost = 1)=logit^{-1}(\beta_0 + \beta_1Response time + \beta_2Reviews + \varepsilon ))))$$
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+logistic_reg_superhost_response_review <-
+  glm(
+    host_is_superhost ~
+      host_response_time +
+      review_scores_rating,
+    data = airbnb_data_selected,
+    family = binomial
+  )
+```
+
+As we see here @tbl-superhosttime, each of the levels have a positive association with the chance of being a superhost.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: tbl-superhosttime
+#| tbl-cap: "Explaining whether a host is a superhost based on their response time"
+
+modelsummary(logistic_reg_superhost_response_review)
+```
+
+\newpage
+# References
