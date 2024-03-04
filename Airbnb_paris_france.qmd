@@ -49,7 +49,7 @@ write_csv(airbnb_data, "airbnb_data.csv")
 airbnb_data
 ```
 
-Data was collected and analyzed with the utilization of the programming software, R Studio [@citer]. Along with that, the following packages are also used, ggplot2 for plotting [@citeGGPlot], tidyverse for data frame manipulation @citeTidyverse, knitr for pdf rendering [@Knitr], naniar for summarizing [@naniar], janitor for cleaning data [@janitor], modelsummary for creating tables [@modelsummary] and arrow [@arrow]. 
+Data was collected and analyzed with the utilization of the programming software, R Studio [@citer]. Along with that, the following packages are also used, ggplot2 for plotting [@citeGGPlot], tidyverse for data frame manipulation [@citeTidyverse], knitr for pdf rendering [@Knitr], naniar for summarizing [@naniar], janitor for cleaning data [@janitor], modelsummary for creating tables [@modelsummary] and arrow [@arrow]. 
 
 The dataset is from [Inside Airbnb](http://insideairbnb.com/) which we saved as a local copy. The name of the file is 'airbnb_data.csv'. This file will be added to gitignore as we do not want this to be pushed to GitHub due to its massive size. Speaking of the size, now we will create a parquet file with our favoured variables. We selected important aspects of Airbnbs; such variables such as price, superhost, number of reviews and etc. 
 
