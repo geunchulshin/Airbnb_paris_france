@@ -1,0 +1,6 @@
+---
+title: "Airbnb_Paris_France"
+format: pdf
+author: "Geunchul Shin"
+thanks: "Code and data are available at: https://github.com/geunchulshin/Airbnb_paris_france"
+---
