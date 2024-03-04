@@ -1,6 +1,295 @@
 ---
-title: "Airbnb_Paris_France"
+title: "Analysis of Airbnb in Paris, France"
 format: pdf
 author: "Geunchul Shin"
 thanks: "Code and data are available at: https://github.com/geunchulshin/Airbnb_paris_france"
+fig-pos: H
+date: today
+date-format: long
+number-sections: true
+bibliography: references.bib
 ---
+
+```{r}
+#| include: false
+#| warning: false
+#| message: false
+library(arrow)
+library(janitor)
+library(knitr)
+library(modelsummary)
+library(tidyverse)
+library(ggplot2)
+library(naniar)
+```
+
+# Introduction
+In this paper, we will be looking at Airbnb listings in Paris, France (12th, December 2023). We will seek the distribution and properties of individual variables of the data. Also we will find possible relationships between variables.
+
+# Data
+
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+url <-
+  paste0(
+    "http://data.insideairbnb.com/france/ile-de-france/paris/2023-12-12/data/listings.csv.gz"
+  )
+
+airbnb_data <-
+  read_csv(
+    file = url,
+    guess_max = 20000
+  )
+
+write_csv(airbnb_data, "airbnb_data.csv")
+
+airbnb_data
+```
+
+Data was collected and analyzed with the utilization of the programming software, R Studio [@citer]. Along with that, the following packages are also used, ggplot2 for plotting [@citeGGPlot], tidyverse for data frame manipulation @citeTidyverse, knitr for pdf rendering [@Knitr], naniar for summarizing [@naniar], janitor for cleaning data [@janitor], modelsummary for creating tables [@modelsummary] and arrow [@arrow]. 
+
+The dataset is from [Inside Airbnb](http://insideairbnb.com/) which we saved as a local copy. The name of the file is 'airbnb_data.csv'. This file will be added to gitignore as we do not want this to be pushed to GitHub due to its massive size. Speaking of the size, now we will create a parquet file with our favoured variables. We selected important aspects of Airbnbs; such variables such as price, superhost, number of reviews and etc. 
+
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+airbnb_data_selected <-
+  airbnb_data |>
+  select(
+    host_id,
+    host_response_time,
+    host_is_superhost,
+    host_total_listings_count,
+    neighbourhood_cleansed,
+    bathrooms,
+    bedrooms,
+    price,
+    number_of_reviews,
+    review_scores_rating,
+    review_scores_accuracy,
+    review_scores_value
+  )
+
+write_parquet(
+  x = airbnb_data_selected, 
+  sink = 
+    "2023-12-12-paris-airbnblistings-select_variables.parquet"
+  )
+
+rm(airbnb_data)
+```
+
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+
+airbnb_data_selected <-
+  airbnb_data_selected |>
+  mutate(
+    price = str_remove_all(price, "[\\$,]"),
+    price = as.integer(price)
+  )
+```
+
+After selecting our favoured variables, we cleaned the data. One cleaning process involved with removing dollar sign ($) from the price as we want to keep the variable to be numeric.
+
+# Distribution and properties of individual variables
+
+```{r}
+#| echo: false
+#| eval: true
+#| warning: false
+#| message: false
+#| label: fig-price1
+#| fig-cap: "Distribution of prices (less than $1,000) for Airbnb listings in Paris in December 2023"
+
+airbnb_data_selected |>
+  filter(price < 1000) |>
+  ggplot(aes(x = price)) +
+  geom_histogram(binwidth = 10) +
+  theme_classic() +
+  labs(
+    x = "Price per night",
+    y = "Number of properties"
+  )
+
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| warning: false
+#| message: false
+#| label: fig-price2
+#| fig-cap: "Distribution of prices (between $80 and $200) for Airbnb listings in Paris in December 2023"
+
+airbnb_data_selected |>
+  filter(price > 80) |>
+  filter(price < 200) |>
+  ggplot(aes(x = price)) +
+  geom_histogram(binwidth = 1) +
+  theme_classic() +
+  labs(
+    x = "Price per night",
+    y = "Number of properties"
+  )
+```
+
+Let's focus on Airbnbs with *prices* less than 1000. Loooking at @fig-price1, we see there are bunching in some prices. If we look @fig-price2, in between $80 and $200, it is very clear that there indeed are bunchings on some prices like $120 and $150. From now, we won't bother counting Airbnbs with over $1000 as we consider them as outliers.
+
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+
+airbnb_data_less_1000 <-
+  airbnb_data_selected |>
+  filter(price < 1000)
+```
+
+Similar to prices, *superhosts* are an important variable when looking at Airbnbs. We got remove of NA values of 'host_is_superhost' variable for clarity. Also, we created a binary variable for efficiency for future usage.
+
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+airbnb_data_less_1000 |>
+  filter(is.na(host_is_superhost))
+
+airbnb_data_no_superhost_nas <-
+  airbnb_data_less_1000 |>
+  filter(!is.na(host_is_superhost)) |>
+  mutate(
+    host_is_superhost_binary =
+      as.numeric(host_is_superhost)
+  )
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: fig-score1
+#| fig-cap: "Distribution of review scores for Paris Airbnb rentals in December 2023" 
+
+airbnb_data_has_reviews <-
+  airbnb_data_no_superhost_nas |>
+  filter(!is.na(review_scores_rating))
+
+airbnb_data_no_superhost_nas |>
+  filter(!is.na(review_scores_rating)) |>
+  ggplot(aes(x = review_scores_rating)) +
+  geom_histogram(binwidth = 1) +
+  theme_classic() +
+  labs(
+    x = "Average review score",
+    y = "Number of properties"
+  )
+```
+
+
+Also very similar to superhost property, *review scores* take a big role. We see the distribution of review scores in @fig-score1. We also have to take account that there are NAs in this variables. After focusing on non-missing values of the variable, we get @fig-score1. The average score seem to be very high with the score of 5.
+
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+airbnb_data_has_reviews <-
+  airbnb_data_has_reviews |>
+  mutate(
+    host_response_time = if_else(
+      host_response_time == "N/A",
+      NA_character_,
+      host_response_time
+    ),
+    host_response_time = factor(host_response_time)
+  )
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: fig-scoreplustime
+#| fig-cap: "Distribution of review scores for properties with NA response time, for Paris Airbnb rentals in December 2023" 
+
+airbnb_data_has_reviews |>
+  filter(is.na(host_response_time)) |>
+  ggplot(aes(x = review_scores_rating)) +
+  geom_histogram(binwidth = 1) +
+  theme_classic() +
+  labs(
+    x = "Average review score",
+    y = "Number of properties"
+  )
+```
+A variable we can also consider is Airbnb hosts' response time. But, we found that there are too many NAs in the variable. However, instead of getting rid of the variable, we seeked if there is any possible relation with another variable. As the "NAs" in "host_response_time" were not written properly, we have rewritten it. Then, we checked if there is a relationship with the review score.
+Here in @fig-scoreplustime, we constructed distribution of review scores for properties with NA response time.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: fig-hostNA
+#| fig-cap: "Missing values in Paris Airbnb data, by host response time" 
+airbnb_data_has_reviews |>
+  ggplot(aes(
+    x = host_response_time,
+    y = review_scores_accuracy
+  )) +
+  geom_miss_point() +
+  labs(
+    x = "Host response time",
+    y = "Review score accuracy",
+    color = "Is missing?"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+```{r}
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+airbnb_data_selected <-
+  airbnb_data_has_reviews |>
+  filter(!is.na(host_response_time))
+```
+
+It is also interesting how many missing values are being dropped by looking at @fig-hostNA.
+We removed hosts with NA as their response time and this almost removed 19 percent of the observations.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: fig-numhost
+#| fig-cap: "Distribution of the number of properties a host has on Airbnb, for Paris Airbnb rentals in December 2023" 
+
+airbnb_data_selected |>
+  ggplot(aes(x = host_total_listings_count)) +
+  geom_histogram() +
+  scale_x_log10() +
+  labs(
+    x = "Total number of listings, by host",
+    y = "Number of hosts"
+  )
+```
+
+We also wondered how many properties a host might have on Airbnb. 
+Here in @fig-numhost, we see how many properties a host has on Airbnb.
+It seems that majority of the hosts owned a single property. Therefore, we will put our focus more on these.
+
+# Relationship between variables
+
+
+
